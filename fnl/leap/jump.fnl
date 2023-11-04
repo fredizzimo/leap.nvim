@@ -15,11 +15,9 @@
   (vim.fn.search "\\_." (case dir :fwd "W" :bwd "bW")))
 
 
-(fn add-offset! [offset]
-  (if (< offset 0) (push-cursor! :bwd)
-      ; Safe first forward push for pre-EOL matches.
-      (> offset 0) (do (when (not (cursor-before-eol?)) (push-cursor! :fwd))
-                       (when (> offset 1) (push-cursor! :fwd)))))
+(fn add-offset! [col offset]
+  ; TODO: Handle multibyte   
+  (math.max 0 (- (+ col (or offset 0)) 1)))
 
 
 (fn push-beyond-eof! []
@@ -39,15 +37,15 @@ the API), make the motion appear to behave as an inclusive one."
   (case (vim.fn.matchstr mode "^no\\zs.")  ; get forcing modifier
     ; In the normal case (no modifier), we should push the cursor
     ; forward. (The EOF edge case requires some hackery though.)
-    "" (if (cursor-before-eof?) (push-beyond-eof!) (push-cursor! :fwd))
+    "" -2
     ; We also want the `v` modifier to behave in the native way, that
     ; is, to toggle between inclusive/exclusive if applied to a charwise
     ; motion (:h o_v). As `v` will change our (technically) exclusive
     ; motion to inclusive, we should push the cursor back to undo that.
-    :v (push-cursor! :bwd)
+    :v -1
     ; Blockwise (<c-v>) itself makes the motion inclusive, do nothing in
     ; that case.
-    ))
+    _ -1))
 
 
 (fn force-matchparen-refresh []
@@ -74,14 +72,15 @@ the API), make the motion appear to behave as an inclusive one."
   (when add-to-jumplist? (vim.cmd "norm! m`"))
   (when (not= winid (vim.fn.win_getid))
     (api.nvim_set_current_win winid))
-  (vim.fn.cursor pos)
-  (when offset (add-offset! offset))
-  ; Since Vim interprets our jump as an exclusive motion (:h exclusive),
-  ; we need custom tweaks to behave as an inclusive one. (This is only
-  ; relevant in the forward direction, as inclusiveness applies to the
-  ; end of the selection.)
-  (when (and op-mode? inclusive-op? (not backward?))
-    (simulate-inclusive-op! mode))
+  ; TODO: Handle till (both linewise and normal)
+  (when (= mode :no) (vim.cmd "norm! v"))  
+  (let [(row col) (unpack pos)]
+    (vim.api.nvim_win_set_cursor winid [row (add-offset! col offset)]))
+        ; Since Vim interprets our jump as an exclusive motion (:h exclusive),
+        ; we need custom tweaks to behave as an inclusive one. (This is only
+        ; relevant in the forward direction, as inclusiveness applies to the
+        ; end of the selection.)
+        ;(if (and op-mode? inclusive-op? (not backward?)) (simulate-inclusive-op! mode) 0)))]))
   (when (not op-mode?) (force-matchparen-refresh)))
 
 
