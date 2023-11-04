@@ -74,14 +74,17 @@ the API), make the motion appear to behave as an inclusive one."
   (when add-to-jumplist? (vim.cmd "norm! m`"))
   (when (not= winid (vim.fn.win_getid))
     (api.nvim_set_current_win winid))
-  (vim.fn.cursor pos)
-  (when offset (add-offset! offset))
+  ; Always incluse operators internally
+  (when (= mode :no) (vim.cmd "norm! v"))  
+  (let [(line col) (unpack pos)]
+      (vim.fn.cursor [line (+ col 1)]))
+  ;(when offset (add-offset! offset))
   ; Since Vim interprets our jump as an exclusive motion (:h exclusive),
   ; we need custom tweaks to behave as an inclusive one. (This is only
   ; relevant in the forward direction, as inclusiveness applies to the
   ; end of the selection.)
-  (when (and op-mode? inclusive-op? (not backward?))
-    (simulate-inclusive-op! mode))
+  ;(when (and op-mode? inclusive-op? (not backward?))
+  ;  (simulate-inclusive-op! mode))
   (when (not op-mode?) (force-matchparen-refresh)))
 
 
