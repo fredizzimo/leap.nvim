@@ -675,7 +675,7 @@ implies changing the labels, C should be checked separately afterwards.
         (jump.jump-to! target.pos
                        {:winid target.wininfo.winid
                         :add-to-jumplist? first-jump?
-                        : mode : offset : backward? : inclusive-op?})
+                        : mode : offset : inclusive-op?})
         (set first-jump? false))))
 
   ; When traversing without labels, keep highlighting the same one group

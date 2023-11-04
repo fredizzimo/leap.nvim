@@ -1,60 +1,26 @@
 local api = vim.api
-local function cursor_before_eol_3f()
-  return (vim.fn.search("\\_.", "Wn") ~= vim.fn.line("."))
-end
-local function cursor_before_eof_3f()
-  return ((vim.fn.line(".") == vim.fn.line("$")) and (vim.fn.virtcol(".") == (vim.fn.virtcol("$") - 1)))
-end
 local function push_cursor_21(dir)
-  local function _2_()
-    local _1_ = dir
-    if (_1_ == "fwd") then
+  local function _1_()
+    if (dir == "fwd") then
       return "W"
-    elseif (_1_ == "bwd") then
+    elseif (dir == "bwd") then
       return "bW"
     else
       return nil
     end
   end
-  return vim.fn.search("\\_.", _2_())
+  return vim.fn.search("\\_.", _1_())
 end
-local function add_offset_21(offset)
-  if (offset < 0) then
-    return push_cursor_21("bwd")
-  elseif (offset > 0) then
-    if not cursor_before_eol_3f() then
-      push_cursor_21("fwd")
-    else
-    end
-    if (offset > 1) then
-      return push_cursor_21("fwd")
-    else
-      return nil
-    end
+local function add_offset_21(col, offset)
+  return math.max(0, (col + (offset or 0)))
+end
+local function fixup_exclusion_21(exclusive_charwise_op)
+  if exclusive_charwise_op then
+    vim.cmd("norm! h")
   else
-    return nil
   end
-end
-local function push_beyond_eof_21()
-  local saved = vim.o.virtualedit
-  vim.o.virtualedit = "onemore"
-  vim.cmd("norm! l")
-  local function _7_()
-    vim.o.virtualedit = saved
-    return nil
-  end
-  return api.nvim_create_autocmd({"CursorMoved", "WinLeave", "BufLeave", "InsertEnter", "CmdlineEnter", "CmdwinEnter"}, {callback = _7_, once = true})
-end
-local function simulate_inclusive_op_21(mode)
-  local _8_ = vim.fn.matchstr(mode, "^no\\zs.")
-  if (_8_ == "") then
-    if cursor_before_eof_3f() then
-      return push_beyond_eof_21()
-    else
-      return push_cursor_21("fwd")
-    end
-  elseif (_8_ == "v") then
-    return push_cursor_21("bwd")
+  if (vim.o.selection == "exclusive") then
+    return vim.cmd("norm! l")
   else
     return nil
   end
@@ -63,14 +29,13 @@ local function force_matchparen_refresh()
   pcall(api.nvim_exec_autocmds, "CursorMoved", {group = "matchparen"})
   return pcall(api.nvim_exec_autocmds, "CursorMoved", {group = "matchup_matchparen"})
 end
-local function jump_to_21(pos, _11_)
-  local _arg_12_ = _11_
-  local winid = _arg_12_["winid"]
-  local add_to_jumplist_3f = _arg_12_["add-to-jumplist?"]
-  local mode = _arg_12_["mode"]
-  local offset = _arg_12_["offset"]
-  local backward_3f = _arg_12_["backward?"]
-  local inclusive_op_3f = _arg_12_["inclusive-op?"]
+local function jump_to_21(pos, _4_)
+  local _arg_5_ = _4_
+  local winid = _arg_5_["winid"]
+  local add_to_jumplist_3f = _arg_5_["add-to-jumplist?"]
+  local mode = _arg_5_["mode"]
+  local offset = _arg_5_["offset"]
+  local inclusive_op_3f = _arg_5_["inclusive-op?"]
   local op_mode_3f = mode:match("o")
   if add_to_jumplist_3f then
     vim.cmd("norm! m`")
@@ -80,13 +45,34 @@ local function jump_to_21(pos, _11_)
     api.nvim_set_current_win(winid)
   else
   end
-  vim.fn.cursor(pos)
-  if offset then
-    add_offset_21(offset)
+  local charwise_op = ((mode == "no") or (mode == "nov"))
+  local start_row, start_col = unpack(vim.fn.getcursorcharpos(), 2)
+  local first_non_blank = ((vim.fn.searchpos("\\S", "bWn", start_row))[1] == 0)
+  local exclusive_charwise_op = (charwise_op and ((mode == "nov") == inclusive_op_3f))
+  local offset0 = (offset or 0)
+  local row, col = unpack(vim.fn.getcharpos(pos), 2)
+  local offset_column = add_offset_21(col, offset0)
+  local backwards = ((row < start_row) or ((row == start_row) and (offset_column < start_col)))
+  if (backwards and charwise_op) then
+    fixup_exclusion_21(exclusive_charwise_op)
   else
   end
-  if (op_mode_3f and inclusive_op_3f and not backward_3f) then
-    simulate_inclusive_op_21(mode)
+  if charwise_op then
+    vim.cmd("norm! v")
+  else
+  end
+  vim.fn.cursor(pos)
+  if ((col == 1) and (offset0 < 0)) then
+    push_cursor_21("bwd")
+  else
+    vim.fn.setcursorcharpos(row, offset_column)
+  end
+  if (not backwards and charwise_op) then
+    fixup_exclusion_21(exclusive_charwise_op)
+  else
+  end
+  if (exclusive_charwise_op and first_non_blank and (col == 1)) then
+    vim.cmd("norm! V")
   else
   end
   if not op_mode_3f then
